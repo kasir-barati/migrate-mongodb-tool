@@ -1,6 +1,8 @@
 #! /usr/bin/env node
 
-import program from 'commander';
+// https://github.com/bdcorps/migrate-mongo
+
+import { program } from 'commander';
 import _ from 'lodash';
 import Table from 'cli-table3';
 
@@ -27,14 +29,17 @@ export class Main {
     private readonly migrationStatus: MigrationStatus;
 
     constructor() {
-        const migrationDirectory = new MigrationDirectory();
         this.configMigrateMongodbUtil =
             new ConfigMigrateMongodbUtil();
+        const migrationDirectory = new MigrationDirectory(
+            this.configMigrateMongodbUtil,
+        );
         this.createMigration = new CreateMigration(
             migrationDirectory,
         );
         this.initializeMigration = new InitializeMigration(
             migrationDirectory,
+            this.configMigrateMongodbUtil,
         );
         this.database = new Database(
             this.configMigrateMongodbUtil,
@@ -90,7 +95,7 @@ export class Main {
         program
             .command('init')
             .description(
-                'initialize a new migration project',
+                'Initialize a new migration project',
             )
             .action(() =>
                 this.initializeMigration
@@ -116,15 +121,14 @@ export class Main {
                 global.options = options;
                 this.createMigration
                     .create(description)
-                    .then((fileName) =>
-                        this.configMigrateMongodbUtil
-                            .read()
-                            .then((config) => {
-                                console.log(
-                                    `Created: ${config.migrationsDir}/${fileName}`,
-                                );
-                            }),
-                    )
+                    .then((fileName) => {
+                        const config =
+                            this.configMigrateMongodbUtil
+                                .customConfigContent;
+                        console.log(
+                            `Created: ${config.migrationsDir}/${fileName}`,
+                        );
+                    })
                     .catch((err) => this.handleError(err));
             });
 
@@ -163,7 +167,7 @@ export class Main {
                 '-f --file <file>',
                 'use a custom config file',
             )
-            .action((options) => {
+            .action((options: ConfigOption) => {
                 global.options = options;
                 this.database
                     .connect()
@@ -195,7 +199,7 @@ export class Main {
                 '-f --file <file>',
                 'use a custom config file',
             )
-            .action((options) => {
+            .action((options: ConfigOption) => {
                 global.options = options;
                 this.database
                     .connect()
@@ -215,8 +219,13 @@ export class Main {
 
         program.parse(process.argv);
 
-        if (_.isEmpty(program.rawArgs)) {
+        if (_.isEmpty(program.args)) {
             program.outputHelp();
         }
     }
 }
+
+(async () => {
+    const main = new Main();
+    await main.init();
+})();

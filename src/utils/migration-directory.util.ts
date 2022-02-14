@@ -2,17 +2,24 @@ import fs from 'fs/promises';
 import crypto from 'crypto';
 import { join, isAbsolute, extname, basename } from 'path';
 
-import { config } from './config.util';
+import { ConfigMigrateMongodbUtil } from './config.util';
 
 export class MigrationDirectory {
     public readonly DEFAULT_MIGRATIONS_DIR_NAME =
         'migrations';
     public readonly DEFAULT_MIGRATION_EXT = '.ts';
 
-    async resolve() {
-        let migrationsDir;
+    constructor(
+        private readonly configMigrateMongodbUtil: ConfigMigrateMongodbUtil,
+    ) {}
+
+    resolve(): string {
+        let migrationsDir: string | undefined;
+
         try {
-            const configContent = await config.read();
+            const configContent =
+                this.configMigrateMongodbUtil
+                    .customConfigContent;
             migrationsDir = configContent.migrationsDir; // eslint-disable-line
             // if config file doesn't have migrationsDir key, assume default 'migrations' dir
             if (!migrationsDir) {
@@ -28,15 +35,19 @@ export class MigrationDirectory {
         if (isAbsolute(migrationsDir)) {
             return migrationsDir;
         }
+
         return join(process.cwd(), migrationsDir);
     }
 
-    async resolveMigrationFileExtension() {
+    resolveMigrationFileExtension(): string | never {
         let migrationFileExtension;
+
         try {
-            const configContent = await config.read();
+            const configContent =
+                this.configMigrateMongodbUtil
+                    .customConfigContent;
             migrationFileExtension =
-                configContent.migrationFileExtension ||
+                configContent?.migrationFileExtension ??
                 this.DEFAULT_MIGRATION_EXT;
         } catch (err) {
             // config file could not be read, assume default extension
@@ -56,16 +67,18 @@ export class MigrationDirectory {
         return migrationFileExtension;
     }
 
-    async resolveSampleMigrationFileName() {
-        const migrationFileExtention =
-            await this.resolveMigrationFileExtension();
-        return `sample-migration${migrationFileExtention}`;
+    resolveSampleMigrationFileName() {
+        const migrationFileExtension =
+            this.resolveMigrationFileExtension();
+
+        return `migration${migrationFileExtension}`;
     }
 
-    async resolveSampleMigrationPath() {
-        const migrationsDir = await this.resolve();
+    resolveSampleMigrationPath(): string {
+        const migrationsDir = this.resolve();
         const sampleMigrationSampleFileName =
-            await this.resolveSampleMigrationFileName();
+            this.resolveSampleMigrationFileName();
+
         return join(
             migrationsDir,
             sampleMigrationSampleFileName,
@@ -73,7 +86,7 @@ export class MigrationDirectory {
     }
 
     async shouldExist() {
-        const migrationsDir = await this.resolve();
+        const migrationsDir = this.resolve();
         try {
             await fs.stat(migrationsDir);
         } catch (err) {
@@ -84,13 +97,13 @@ export class MigrationDirectory {
     }
 
     async shouldNotExist() {
-        const migrationsDir = await this.resolve();
+        const migrationsDir = this.resolve();
         const error = new Error(
             `migrations directory already exists: ${migrationsDir}`,
         );
 
         try {
-            await fs.stat(migrationsDir);
+            await fs.access(migrationsDir);
             throw error;
         } catch (err: any) {
             if (err.code !== 'ENOENT') {
@@ -130,11 +143,13 @@ export class MigrationDirectory {
         return hash.digest('hex');
     }
 
-    async doesSampleMigrationExist() {
+    async doesSampleMigrationExist(): Promise<boolean> {
         const samplePath =
-            await this.resolveSampleMigrationPath();
+            this.resolveSampleMigrationPath();
+
         try {
             await fs.stat(samplePath);
+
             return true;
         } catch (err) {
             return false;

@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import { join } from 'path';
+
 import { nowAsString } from '../utils/date.util';
 import { MigrationDirectory } from '../utils/migration-directory.util';
 
@@ -8,7 +9,9 @@ export class CreateMigration {
         private migrationDirectory: MigrationDirectory,
     ) {}
 
-    async create(migrationName: string) {
+    async create(
+        migrationName: string,
+    ): Promise<string> | never {
         if (!migrationName) {
             throw new Error(
                 'Missing parameter: migrationName',
@@ -16,22 +19,24 @@ export class CreateMigration {
         }
 
         await this.migrationDirectory.shouldExist();
+
         const migrationsDirPath =
-            await this.migrationDirectory.resolve();
+            this.migrationDirectory.resolve();
         const migrationExtension =
-            await this.migrationDirectory.resolveMigrationFileExtension();
+            this.migrationDirectory.resolveMigrationFileExtension();
 
         // Check if there is a 'sample-migration.js' file in migrations dir - if there is, use that
-        let source;
+        let source: string;
+
         if (
             await this.migrationDirectory.doesSampleMigrationExist()
         ) {
             source =
-                await this.migrationDirectory.resolveSampleMigrationPath();
+                this.migrationDirectory.resolveSampleMigrationPath();
         } else {
             source = join(
                 __dirname,
-                '../../samples/migration.js',
+                '../../samples/migration.ts',
             );
         }
 
@@ -42,6 +47,7 @@ export class CreateMigration {
             migrationsDirPath,
             filename,
         );
+
         await fs.copyFile(source, destination);
         return filename;
     }

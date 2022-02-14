@@ -1,31 +1,42 @@
 import fs from 'fs/promises';
 import { join, isAbsolute, basename } from 'path';
-import { get } from 'lodash';
+
+import { ConfigOption } from '@src/types/config-options.type';
 
 export class ConfigMigrateMongodbUtil {
-    public readonly DEFAULT_CONFIG_FILE_NAME = 'config.ts';
-    customConfigContent: any | null = null;
+    public static readonly DEFAULT_CONFIG_FILE_NAME =
+        'config.ts';
+    private _customConfigContent: ConfigOption;
 
     getConfigPath() {
-        const fileOptionValue = get(
-            (global as any).options,
-            'file',
-        );
+        const fileOptionValue = global?.options?.file;
+
         if (!fileOptionValue) {
             return join(
                 process.cwd(),
-                this.DEFAULT_CONFIG_FILE_NAME,
+                ConfigMigrateMongodbUtil.DEFAULT_CONFIG_FILE_NAME,
             );
         }
 
         if (isAbsolute(fileOptionValue)) {
             return fileOptionValue;
         }
+
         return join(process.cwd(), fileOptionValue);
     }
 
-    set(configContent: any) {
-        this.customConfigContent = configContent;
+    set customConfigContent(configContent: ConfigOption) {
+        this._customConfigContent = configContent;
+    }
+
+    get customConfigContent() {
+        if (this._customConfigContent) {
+            return this._customConfigContent;
+        }
+
+        const configPath = this.getConfigPath();
+
+        return require(configPath);
     }
 
     async shouldExist() {
@@ -48,7 +59,7 @@ export class ConfigMigrateMongodbUtil {
                 `config file already exists: ${configPath}`,
             );
             try {
-                await fs.stat(configPath);
+                await fs.access(configPath);
                 throw error;
             } catch (err: any) {
                 if (err.code !== 'ENOENT') {
@@ -60,13 +71,5 @@ export class ConfigMigrateMongodbUtil {
 
     getConfigFilename() {
         return basename(this.getConfigPath());
-    }
-
-    async read() {
-        if (this.customConfigContent) {
-            return this.customConfigContent;
-        }
-        const configPath = this.getConfigPath();
-        return Promise.resolve(require(configPath)); // eslint-disable-line
     }
 }

@@ -10,7 +10,8 @@ export class Database {
 
     async connect() {
         const configContent =
-            await this.configMigrateMongodbUtil.read();
+            this.configMigrateMongodbUtil
+                .customConfigContent;
         const url = _.get(configContent, 'mongodb.url');
         const databaseName = _.get(
             configContent,

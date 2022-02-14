@@ -50,7 +50,8 @@ export class DowngradeDatabase {
             }
 
             const { changelogCollectionName } =
-                await this.configMigrateMongodbUtil.read();
+                this.configMigrateMongodbUtil
+                    .customConfigContent;
             const changelogCollection = db.collection(
                 changelogCollectionName,
             );

@@ -1,33 +1,34 @@
-import fs from 'fs-extra';
+import fs from 'fs/promises';
 import { join } from 'path';
 
 import { MigrationDirectory } from '../utils/migration-directory.util';
-import { config } from '../utils/config.util';
+import { ConfigMigrateMongodbUtil } from '../utils/config.util';
 
 export class InitializeMigration {
     constructor(
         private migrationDirectory: MigrationDirectory,
+        private configMigrateMongodbUtil: ConfigMigrateMongodbUtil,
     ) {}
 
     copySampleConfigFile() {
         const source = join(
             __dirname,
-            '../../samples/migrate-mongo-config.js',
+            `../../samples/${ConfigMigrateMongodbUtil.DEFAULT_CONFIG_FILE_NAME}`,
         );
         const destination = join(
             process.cwd(),
-            config.DEFAULT_CONFIG_FILE_NAME,
+            ConfigMigrateMongodbUtil.DEFAULT_CONFIG_FILE_NAME,
         );
-        return fs.copy(source, destination);
+        return fs.copyFile(source, destination);
     }
 
     createMigrationsDirectory() {
-        return fs.mkdirs(join(process.cwd(), 'migrations'));
+        return fs.mkdir(join(process.cwd(), 'migrations'));
     }
 
-    async init() {
+    async init(): Promise<void> | never {
         await this.migrationDirectory.shouldNotExist();
-        await config.shouldNotExist();
+        await this.configMigrateMongodbUtil.shouldNotExist();
         await this.copySampleConfigFile();
         return this.createMigrationsDirectory();
     }
